@@ -200,12 +200,30 @@ $("form").addEventListener("submit", async (e) => {
   }
 });
 
-$("download").addEventListener("click", () => {
-  if (!output) return;
+// 手機上改叫出系統分享選單（可選「儲存到檔案」）；電腦或不支援分享檔案的瀏覽器照常下載
+const isTouch = matchMedia("(pointer: coarse)").matches;
+function canShareFile(file) {
+  try { return isTouch && !!navigator.canShare && navigator.canShare({ files: [file] }); } catch { return false; }
+}
+if (canShareFile(new File(["x"], "x.txt", { type: "text/plain" }))) $("download").textContent = "儲存 txt";
+
+function saveByDownload() {
   const url = URL.createObjectURL(new Blob([output.text], { type: "text/plain;charset=utf-8" }));
   const a = Object.assign(document.createElement("a"), { href: url, download: output.fileName });
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("download").addEventListener("click", async () => {
+  if (!output) return;
+  const file = new File([output.text], output.fileName, { type: "text/plain" });
+  if (!canShareFile(file)) { saveByDownload(); return; }
+  try {
+    await navigator.share({ files: [file] });
+  } catch (err) {
+    if (err && err.name === "AbortError") return; // 使用者自己關掉選單
+    saveByDownload();
+  }
 });
 
 $("copy").addEventListener("click", async () => {
